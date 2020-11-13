@@ -13,6 +13,10 @@ enum BuffState
     OLD
 };
 
+/**
+ *  Class to handle one producer and one consumer using a tripleBuffer where the consumer
+ *  always wants the last produced element.
+ */
 template <class T>
 class TripleBuffer
 {
@@ -20,12 +24,15 @@ public:
     TripleBuffer(){};
     ~TripleBuffer() = default;
 
-    void * producerGet()
+    /**
+     *  Function to be called by the producer to get an avaliable memory to be writen.
+     */
+    T * producerGet()
     {
         bool miss = true;
         int ready = -1;
         _mtx.lock();
-        for(int i=0;i<_buffState.size();i++)
+        for(int i=0;i<_buffState.size();i++) // search for an OLD buffer to write 
         {
             if(_buffState[i] == BuffState::OLD)
             {
@@ -39,7 +46,7 @@ public:
                 ready = i;
             }
         }
-        if (miss)
+        if (miss) // If there is not OLD buffers uses a READY one.
         {
             _buffState[ready] = BuffState::WRITING;
             _producerIndex = ready;
@@ -48,14 +55,26 @@ public:
         return &(_tBuff[_producerIndex]);
     }
 
-    void producerGive()
+    /**
+     * Function to be called by the producer when the new element has been written.
+     */
+    void producerGive(T*& buff)
     {
         _mtx.lock();
+        for(int i=0;i<_buffState.size();i++)
+        {
+            if(_buffState[i] == BuffState::READY)
+                _buffState[i] = BuffState::OLD;
+
+        }
         _buffState[_producerIndex] = BuffState::READY;
         _mtx.unlock();
     }
 
-    void * consumerGet()
+    /**
+     * Function that gets the last produced element.
+     */
+    T * consumerGet()
     {
         _mtx.lock();
         for(int i=0;i<_buffState.size();i++)
@@ -71,11 +90,16 @@ public:
         _mtx.unlock();
         return nullptr;
     }
-    void consumerGive()
+
+    /**
+     * Function that returns the consumed element.
+     */
+    void consumerGive(T*& buff)
     {
         _mtx.lock();
         _buffState[_consumerIndex] = BuffState::OLD;
         _mtx.unlock();
+        buff = nullptr;
     }
 
 private:

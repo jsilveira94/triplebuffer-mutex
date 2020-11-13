@@ -1,2 +1,3 @@
-# triplebuffer-mutex
-Class for Triple buffer implementation with mutex
+# triplebuffer
+Class for one consumer and one producer, when the consumer only cares for the last produced element.
+
